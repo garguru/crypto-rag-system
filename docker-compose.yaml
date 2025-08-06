@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Main Crypto RAG application
+  crypto-rag-app:
+    build: .
+    container_name: crypto-rag-frontend
+    ports:
+      - "8501:8501"  # Streamlit port
+    volumes:
+      - ./crypto_data:/app/crypto_data  # Persist predictions
+      - .:/app  # Live code updates
+    environment:
+      - POLYGON_API_KEY=${POLYGON_API_KEY:-ZOPT0lW9zJUuwX6NuxCMX1zhGVBqaVID}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-none}
+      - MODEL_MODE=${MODEL_MODE:-local}
+    depends_on:
+      - llm
+    restart: unless-stopped
+    networks:
+      - crypto-net
+
+  # Local LLM service (optional - for future enhancement)
+  llm:
+    image: ollama/ollama:latest
+    container_name: crypto-llm
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-llama2}
+    networks:
+      - crypto-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Redis for caching (optional enhancement)
+  cache:
+    image: redis:alpine
+    container_name: crypto-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - crypto-net
+    command: redis-server --appendonly yes
+
+networks:
+  crypto-net:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  redis_data:
